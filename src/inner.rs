@@ -25,7 +25,7 @@ use bevy::ecs::system::lifetimeless::Read;
 #[derive(SystemParam)]
 pub struct OpaqueParams<'w, 's> {
     q: Query<'w, 's, Read<Private>>,
-    // ...other params, etc.
+    // ...other params, etc...
 }
 
 // prints the value of private components
