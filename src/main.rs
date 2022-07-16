@@ -4,35 +4,18 @@ use bevy::prelude::*;
 mod inner {
     use super::*;
 
-    pub struct InnerPlugin;
-    impl Plugin for InnerPlugin {
-        fn build(&self, app: &mut App) {
-            app.add_startup_system(setup);
-        }
-    }
-
-    // if you mark this as `pub`, the example compiles and runs fine, but exposes an implementation detail.
     #[derive(Component)]
     struct Private(String);
 
-    fn setup(mut commands: Commands) {
-        commands
-            .spawn()
-            .insert(Private("this is private".to_string()));
-        commands
-            .spawn()
-            .insert(Private("this is also private".to_string()));
-    }
-
     use bevy::ecs::system::lifetimeless::Read;
     pub struct OpaqueParams<'w, 's> {
-        q: Query<'w, 's, Read<Private>>,
-        // ...other params, etc...
+        _q: Query<'w, 's, Read<Private>>,
     }
     #[doc(hidden)]
     pub type OpaqueFetch = impl for<'w, 's> bevy::ecs::system::SystemParamFetch<'w, 's>;
 
     // `OpaqueFetch` breaks if i remove this module (or the fn `define_opaque` lower down), and I don't know why.
+    // This might be another, unrelated bug.
     mod define {
         #[allow(unreachable_code)]
         #[allow(unused)]
@@ -96,25 +79,15 @@ mod inner {
             world: &'w bevy::ecs::world::World,
             change_tick: u32,
         ) -> Self::Item {
-            OpaqueParams { q : < < Query < 'w , 's , Read < Private > > as bevy :: ecs :: system :: SystemParam > :: Fetch as bevy :: ecs :: system :: SystemParamFetch > :: get_param (& mut state . state . 0 , system_meta , world , change_tick) , }
-        }
-    }
-
-    // prints the value of private components
-    pub fn print_private(OpaqueParams { q }: OpaqueParams) {
-        for p in q.iter() {
-            println!("{}", p.0);
+            OpaqueParams { 
+                _q : < < Query < 'w , 's , Read < Private > > as bevy :: ecs :: system :: SystemParam > :: Fetch as bevy :: ecs :: system :: SystemParamFetch > :: get_param (& mut state . state . 0 , system_meta , world , change_tick) , }
         }
     }
 }
 
 fn main() {
-    App::new()
-        .add_plugin(inner::InnerPlugin)
-        .add_system(print_stuff)
-        .run();
-}
-
-fn print_stuff(params: inner::OpaqueParams) {
-    inner::print_private(params);
+    eprintln!(
+        "{}",
+        std::any::type_name::<inner::OpaqueFetch>()
+    );
 }
