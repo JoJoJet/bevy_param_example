@@ -13,7 +13,7 @@ mod inner {
 
     // if you mark this as `pub`, the example compiles and runs fine, but exposes an implementation detail.
     #[derive(Component)]
-    struct Private(String);
+    pub struct Private(String);
 
     fn setup(mut commands: Commands) {
         commands
@@ -30,14 +30,8 @@ mod inner {
         // ...other params, etc...
     }
     #[doc(hidden)]
-    pub type OpaqueFetch = impl for<'w, 's> bevy::ecs::system::SystemParamFetch<'w, 's>;
-
-    // `OpaqueFetch` breaks if i remove this module (or the fn `define_opaque` lower down), and I don't know why.
-    mod define {
-        #[allow(unreachable_code)]
-        #[allow(unused)]
-        fn dummy<'w, 's>() -> super::OpaqueFetch {}
-    }
+    pub type OpaqueFetch =
+        impl for<'w, 's> bevy::ecs::system::SystemParamFetch<'w, 's, Item = OpaqueParams<'w, 's>>;
 
     // the purpose of this fn is just to fulfill the "defining scope"
     // for the above opaque (existential) type.
@@ -45,12 +39,15 @@ mod inner {
     // in on what the concrete type of `OpaqueFetch` is.
     #[allow(unreachable_code)]
     #[allow(unused)]
-    fn define_opaque<'w, 's>() -> OpaqueFetch {
+    fn define_opaque(
+        world: &mut bevy::ecs::world::World,
+        system_meta: &mut bevy::ecs::system::SystemMeta,
+    ) -> OpaqueFetch {
         type QueryFetch<'w, 's> =
             <Query<'w, 's, Read<Private>> as bevy::ecs::system::SystemParam>::Fetch;
 
         use bevy::ecs::system::SystemParamState as _;
-        <OpaqueParamsState<(QueryFetch<'w, 's>,)>>::init(unreachable!(), unreachable!())
+        <OpaqueParamsState<(QueryFetch<'static, 'static>,)>>::init(world, system_meta)
     }
 
     impl<'w, 's> bevy::ecs::system::SystemParam for OpaqueParams<'w, 's> {
@@ -96,7 +93,16 @@ mod inner {
             world: &'w bevy::ecs::world::World,
             change_tick: u32,
         ) -> Self::Item {
-            OpaqueParams { q : < < Query < 'w , 's , Read < Private > > as bevy :: ecs :: system :: SystemParam > :: Fetch as bevy :: ecs :: system :: SystemParamFetch > :: get_param (& mut state . state . 0 , system_meta , world , change_tick) , }
+            type PrivateFetch<'w, 's> =
+                <Query<'w, 's, Read<Private>> as bevy::ecs::system::SystemParam>::Fetch;
+            OpaqueParams {
+                q: <PrivateFetch<'w, 's> as bevy::ecs::system::SystemParamFetch>::get_param(
+                    &mut state.state.0,
+                    system_meta,
+                    world,
+                    change_tick,
+                ),
+            }
         }
     }
 
